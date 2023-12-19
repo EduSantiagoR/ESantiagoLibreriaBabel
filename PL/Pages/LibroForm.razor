@@ -1,0 +1,164 @@
+﻿@page "/libroform/{idLibro:int}"
+@inject NavigationManager NavigationManager
+
+<div>
+    <form @onsubmit="Save">
+
+        <h4 class="text-center">Libro</h4><br />
+        <div class="row mb-3">
+            <div class="col col-4">
+                <label>Titulo</label>
+                <div class="input-group flex-nowrap">
+                    <span class="input-group-text"><i class="fa-solid fa-book"></i></span>
+                    <input @bind="libro.Titulo" type="text" class="form-control" placeholder="Título" aria-label="Título" aria-describedby="addon-wrapping">
+                </div>
+            </div>
+            <div class="col col-4">
+                <label>Volumen</label>
+                <div class="input-group flex-nowrap">
+                    <span class="input-group-text">#</span>
+                    <input @bind="libro.Volumen" type="text" class="form-control" placeholder="Volumen" aria-label="Volumen" aria-describedby="addon-wrapping">
+                </div>
+            </div>
+        </div><br />
+
+        <h4 class="text-center">Ubicación</h4><br />
+        <div class="row mb-3">
+            <div class="col col-4">
+                <label>Sala</label>
+                <div class="input-group flex-nowrap">
+                    <span class="input-group-text"><i class="fa-solid fa-house-flag"></i></span>
+                    <input @bind="libro.Ubicacion.Sala" type="text" class="form-control" placeholder="Sala" aria-label="Sala" aria-describedby="addon-wrapping">
+                </div>
+            </div>
+            <div class="col col-4">
+                <label>Librero</label>
+                <div class="input-group flex-nowrap">
+                    <span class="input-group-text"><i class="fa-solid fa-map-pin"></i></span>
+                    <input @bind="libro.Ubicacion.Librero" type="text" class="form-control" placeholder="Librero" aria-label="Librero" aria-describedby="addon-wrapping">
+                </div>
+            </div>
+            <div class="col col-4">
+                <label>Estante</label>
+                <div class="input-group flex-nowrap">
+                    <span class="input-group-text"><i class="fa-solid fa-thumbtack"></i></span>
+                    <input @bind="libro.Ubicacion.Estante" type="text" class="form-control" placeholder="Estante" aria-label="Estante" aria-describedby="addon-wrapping">
+                </div>
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col col-4">
+                <label>Posición</label>
+                <div class="input-group flex-nowrap">
+                    <span class="input-group-text"><i class="fa-solid fa-bookmark"></i></span>
+                    <input @bind="libro.Ubicacion.Posicion" type="text" class="form-control" placeholder="Posición" aria-label="Posición" aria-describedby="addon-wrapping">
+                </div>
+            </div>
+        </div>
+        <div>
+            <button class="btn btn-danger" type="button" @onclick="ChangeView">Volver</button>
+            <button class="btn btn-success" type="submit">Guardar</button>
+        </div>
+    </form>
+</div>
+
+<Modal MostrarModal="@mostrarModal"
+    MostrarModalChanged="ActualizarMostrarModal"
+    Mensaje="@mensaje"
+    OnContinuar="ChangeView"
+    MostrarBotonCerrar="false"/>
+
+@code {
+    [Parameter]
+    public int idLibro { get; set; }
+
+    ML.Libro libro = new ML.Libro();
+
+    bool mostrarModal = false;
+    string? mensaje;
+
+    protected override void OnInitialized()
+    {
+        if (idLibro != 0)
+        {
+            ML.Result resultLibro = new ML.Result();
+            using(var client = new HttpClient())
+            {
+                client.BaseAddress = new Uri("http://localhost:5069/api/");
+                var taskResponse = client.GetAsync($"Libro/{idLibro}");
+                taskResponse.Wait();
+
+                var resultService = taskResponse.Result;
+                if (resultService.IsSuccessStatusCode)
+                {
+                    var readTask = resultService.Content.ReadAsAsync<ML.Result>();
+                    readTask.Wait();
+
+                    ML.Libro libroResult = Newtonsoft.Json.JsonConvert.DeserializeObject<ML.Libro>(readTask.Result.Object.ToString());
+                    resultLibro.Object = libroResult;
+                }
+            }
+            libro = (ML.Libro)resultLibro.Object;
+        }
+        else
+        {
+            libro.Ubicacion = new ML.Ubicacion();
+        }
+    }
+    private void Save()
+    {
+        if(idLibro == 0)
+        {
+            ML.Result result = new ML.Result();
+            using(var client = new HttpClient())
+            {
+                client.BaseAddress = new Uri("http://localhost:5069/api/");
+                var taskResponse = client.PostAsJsonAsync("Libro", libro);
+                taskResponse.Wait();
+
+                var resultService = taskResponse.Result;
+                if (resultService.IsSuccessStatusCode)
+                {
+                    var readTask = resultService.Content.ReadAsAsync<ML.Result>();
+                    readTask.Wait();
+
+                    result = readTask.Result;                
+                }
+            }
+            mensaje = result.Message;
+        }
+        else
+        {
+            ML.Result result = new ML.Result();
+            using(var client = new HttpClient())
+            {
+                client.BaseAddress = new Uri("http://localhost:5069/api/");
+                var taskResponse = client.PutAsJsonAsync($"Libro/{libro.IdLibro}", libro);
+                taskResponse.Wait();
+
+                var resultService = taskResponse.Result;
+                if (resultService.IsSuccessStatusCode)
+                {
+                    var readTask = resultService.Content.ReadAsAsync<ML.Result>();
+                    readTask.Wait();
+
+                    result = readTask.Result;
+                }
+            }
+            mensaje = result.Message;
+        }
+        ActualizarMostrarModal(true);
+    }
+    private void ChangeView()
+    {
+        NavigationManager.NavigateTo("/libros");
+    }
+    void MostrarModal()
+    {
+        mostrarModal = true;
+    }
+    void ActualizarMostrarModal(bool valor)
+    {
+        mostrarModal = valor;
+    }
+}
